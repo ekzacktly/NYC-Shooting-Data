@@ -1,0 +1,86 @@
+---
+title: "Shooting_Project"
+author: "ZRO"
+date: "2024-03-25"
+output:
+  pdf_document: default
+  html_document: default
+---
+```{r load-packages, include=FALSE}
+library(tidyverse)
+library(formatR)
+```
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, tidy.opts = list(width.cutoff = 60), tidy = TRUE)
+```
+
+
+
+## Shooting Data Project
+### This project involves gathering, cleaning, analyzing and plotting NYC shooting data.
+
+Getting the data:
+```{r}
+download.file("https://data.cityofnewyork.us/api/views/833y-fsy8/rows.csv?accessType=DOWNLOAD", destfile = "Data/shooting_data.csv")
+shootings_data <- readr::read_csv("Data/shooting_data.csv")
+```
+
+Summary of the Data imported:
+```{r}
+summary(shootings_data)
+```
+The date appears to be a character type, i'll change to a proper date type.  Lon_Lat looks redundant so i'll remove that too
+```{r}
+shootings_data <- shootings_data %>% mutate(OCCUR_DATE = mdy(OCCUR_DATE)) %>% select(-c(Lon_Lat))
+summary(shootings_data)
+```
+
+Lets look for missing data, I see there are some NAs in Jurisdiction Code, Latitude and Longitude.  I'll remove those:
+```{r}
+shootings_data = shootings_data[!is.na(shootings_data$"JURISDICTION_CODE") & !is.na(shootings_data$"Latitude") & !is.na(shootings_data$"Longitude"),]
+summary(shootings_data)
+```
+
+
+## Adding some visulizations
+
+Lets view shooting incidents over time
+```{r message=FALSE, warning=FALSE}
+shootings_by_year <- shootings_data %>% group_by(year(OCCUR_DATE)) %>% summarize(Total_Shootings = n())
+names(shootings_by_year) <- c('Year','Total_Shootings')
+ggplot(shootings_by_year, aes(x=Year,y=Total_Shootings, ymin = 0, ymax = 2500)) + geom_point()
+```
+
+
+This makes me wonder why there was such an uptick in shootings in 2020
+  -Maybe a certain boro is most to blame?
+
+```{r message=FALSE, warning=FALSE}
+shootings_by_boro_year <- shootings_data %>% group_by(BORO,year(OCCUR_DATE), .add=TRUE) %>% summarize(Total_Shootings = n())
+names(shootings_by_boro_year) <- c('Boro', 'Year', 'Total_Shootings')
+shootings_by_boro_year <- shootings_by_boro_year[shootings_by_boro_year$Year == 2019 | shootings_by_boro_year$Year == 2020,]
+ggplot(shootings_by_boro_year, aes(x=Year, y = Total_Shootings)) + geom_point() + facet_grid(. ~ Boro) + scale_x_continuous(limits = c(2018,2021)) + theme(axis.text.x = element_text(angle=90))
+```
+
+It seems that every borough had an increase in shootings between the two years...
+
+
+## Conclusions
+
+In this data analysis, I pulled shooting incident data from the city of New York's public repository.
+  With this data, I was able to see that there was a general downward trend in shootings
+  until 2020, where there was a large uptick.  To determine if shootings had risen across
+  the city or were localized to one Borough, I plotted the total shooting incidents by Borough
+  for those 2 years which revealed that there was an increase in all Boroughs.
+  
+The root cause of this trends is most likely the increased economic uncertainty 
+  that went along with the pandemic.  One area of bias I may have is that I
+  believe in the pandemic and its effects whereas others may not.  It would be very
+  difficult to isolate this bias without significant sources of outside data and
+  research.
+  
+Another area of bias could be derived from the fact that I do not live in a city and
+  therefore can view a city as one homogeneous thing.  Isolating the city by its
+  constituent parts helped me overcome that bias.
+
